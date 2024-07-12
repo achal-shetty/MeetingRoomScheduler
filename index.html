@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    .header-logo {
+      width: 200px; /* Set desired width */
+      height: auto; /* Maintain aspect ratio */
+    }
+  </style>
+  <header class="mb-4 text-center">
+    <img src="C:\Users\Achal Shetty\Desktop\1682591259288.jpeg" alt="Company Logo" class="header-logo">
+  </header>
+  <title>Meeting Room Booking</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script>
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbypMufbhtTvU22ak8-0gxhx65VAn1jqGLwIZd3tner_i7txmS8V6D2U5L4XMjcORnA/exec';  // Replace with your Apps Script URL
+
+    function showSpinner() {
+      $('#spinnerModal').modal('show');
+    }
+
+    function hideSpinner() {
+      $('#spinnerModal').modal('hide');
+    }
+
+    function populateCustomerDetails() {
+      showSpinner();
+      const whatsappNumber = document.getElementById('whatsappNumber').value;
+      if (!whatsappNumber.match(/^\d{10}$/)) {
+        alert('Please enter a valid 10-digit WhatsApp number');
+        hideSpinner();
+        return;
+      }
+      fetch(`${scriptUrl}?action=getCustomerDetails&whatsappNumber=${whatsappNumber}`)
+        .then(response => response.json())
+        .then(details => {
+          hideSpinner();
+          if (details) {
+            document.getElementById('firstName').value = details.firstName;
+            document.getElementById('lastName').value = details.lastName;
+            document.getElementById('companyName').value = details.companyName;
+            document.getElementById('designation').value = details.designation;
+            document.getElementById('id').value = details.id;
+          } else {
+            alert('Not a customer');
+            clearForm();
+          }
+        });
+    }
+
+    function populateTimeSlots() {
+      const startTimeSelect = document.getElementById('startTime');
+      const endTimeSelect = document.getElementById('endTime');
+      const startTimes = generateTimeSlots(9, 17, 60);  // 9 AM to 5 PM with 60-minute intervals
+      const endTimes = generateTimeSlots(10, 18, 60);  // 10 AM to 6 PM with 60-minute intervals
+
+      startTimes.forEach(time => {
+        const option = document.createElement('option');
+        option.value = time;
+        option.text = time;
+        startTimeSelect.appendChild(option);
+      });
+
+      endTimes.forEach(time => {
+        const option = document.createElement('option');
+        option.value = time;
+        option.text = time;
+        endTimeSelect.appendChild(option);
+      });
+    }
+
+    function generateTimeSlots(startHour, endHour, interval) {
+      const times = [];
+      for (let i = startHour * 60; i < endHour * 60; i += interval) {
+        const hours = Math.floor(i / 60);
+        const minutes = i % 60;
+        const time = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        times.push(time);
+      }
+      return times;
+    }
+
+    function showAvailableRooms() {
+      showSpinner();
+      const date = document.getElementById('date').value;
+      const startTime = document.getElementById('startTime').value;
+      const endTime = document.getElementById('endTime').value;
+      if (!date || !startTime || !endTime) {
+        alert('Please select date and both start time and end time');
+        hideSpinner();
+        return;
+      }
+      const timeSlot = `${startTime} to ${endTime}`;
+      fetch(`${scriptUrl}?action=getAvailableRooms&date=${date}&timeSlot=${timeSlot}`)
+        .then(response => response.json())
+        .then(rooms => {
+          hideSpinner();
+          const roomSelect = document.getElementById('meetingRoom');
+          roomSelect.innerHTML = '';
+          rooms.forEach(room => {
+            const option = document.createElement('option');
+            option.value = room;
+            option.text = room;
+            roomSelect.appendChild(option);
+          });
+        });
+    }
+
+    function bookMeetingRoom() {
+      showSpinner();
+      const details = {
+        id: document.getElementById('id').value,
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        whatsappNumber: document.getElementById('whatsappNumber').value,
+        companyName: document.getElementById('companyName').value,
+        designation: document.getElementById('designation').value,
+        meetingRoom: document.getElementById('meetingRoom').value,
+        date: document.getElementById('date').value,
+        timeSlot: `${document.getElementById('startTime').value} to ${document.getElementById('endTime').value}`
+      };
+
+      if (!details.whatsappNumber || !details.meetingRoom || !details.timeSlot || !details.date) {
+        alert('Please complete all fields before booking');
+        hideSpinner();
+        return;
+      }
+
+      fetch(scriptUrl, {
+        method: 'POST',
+        body: new URLSearchParams({
+          action: 'logBooking',
+          details: JSON.stringify(details)
+        })
+      })
+      .then(response => response.text())
+      .then(message => {
+        hideSpinner();
+        // Display confirmation message in modal
+        document.getElementById('confirmationModalMessage').innerText = message;
+        $('#confirmationModal').modal('show'); // Ensure jQuery is included for this to work
+        clearForm();
+      });
+    }
+
+    function clearForm() {
+      document.getElementById('whatsappNumber').value = '';
+      document.getElementById('firstName').value = '';
+      document.getElementById('lastName').value = '';
+      document.getElementById('companyName').value = '';
+      document.getElementById('designation').value = '';
+      document.getElementById('startTime').value = '';
+      document.getElementById('endTime').value = '';
+      document.getElementById('meetingRoom').innerHTML = '';
+      document.getElementById('date').value = '';
+    }
+
+    window.onload = function() {
+      populateTimeSlots();
+      const dateInput = document.getElementById('date');
+      dateInput.valueAsDate = new Date();  // Set today's date by default
+    };
+  </script>
+</head>
+<body>
+  <div class="container mt-5">
+    
+    <form>
+      <div class="form-row">
+        <div class="form-group col-md-6">
+          <label for="whatsappNumber">WhatsApp Number:</label>
+          <input type="text" class="form-control" id="whatsappNumber" name="whatsappNumber" placeholder="Enter 10-digit WhatsApp number" required>
+          <small id="whatsappHelp" class="form-text text-muted">Enter your WhatsApp number and hit Fetch Details</small>
+          <button type="button" class="btn btn-primary mt-2" onclick="populateCustomerDetails()">Fetch Details</button>
+        </div>
+
+       <div class = "form-row"> 
+        <div class="form-group col-md-3">
+          <label for="firstName">First Name:</label>
+          <input type="text" class="form-control" id="firstName" name="firstName" readonly>
+        </div>
+        <div class = "form-group col-md-3">
+          <label for="lastName">Last Name:</label>
+          <input type="text" class="form-control" id="lastName" name="lastName" readonly>
+        </div>
+      
+        <div class="form-group col-md-3">
+          <label for="companyName">Company Name:</label>
+          <input type="text" class="form-control" id="companyName" name="companyName" readonly>
+        </div>
+        <div class="form-group col-md-3">
+          <label for="designation">Designation:</label>
+          <input type="text" class="form-control" id="designation" name="designation" readonly>
+        </div>
+      </div>
+
+        
+        <div class="form-group col-md-3">
+          <label for="date">Select Date:</label>
+          <input type="date" class="form-control" id="date" name="date" required>
+        </div>
+        <div class="form-group col-md-3">
+          <label for="startTime">Select Start Time:</label>
+            <select class="form-control" id="startTime" name="startTime" required>
+              <!-- Options will be populated dynamically -->
+            </select>
+        </div>
+
+        <div class="form-group col-md-3">
+          <label for="endTime">Select End Time:</label>
+          <select class="form-control" id="endTime" name="endTime" required>
+            <!-- Options will be populated dynamically -->
+          </select>
+        </div>
+      </div>
+
+
+      <div class="form-row">
+        <div class="form-group col-md-10">
+          <button type="button" class="btn btn-primary mb-3" onclick="showAvailableRooms()">Show Available Rooms</button>
+        </div>
+      </div>
+
+      <div class = "form-row">
+        <div class="form-group col-md-6">
+          <label for="meetingRoom">Available Meeting Rooms:</label>
+          <select class="form-control" id="meetingRoom" name="meetingRoom">
+            <!-- Options will be populated dynamically -->
+          </select>
+        </div>
+      </div>
+    </div>
+
+      <input type="hidden" id="id" name="id">
+
+      <div class="form-group text-center">
+        <button type="button" class="btn btn-success" onclick="bookMeetingRoom()">Confirm Booking</button>
+      </div>
+    </form>
+
+
+
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="confirmationModalLabel">Booking Confirmation</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body text-center">
+            <img src="C:\Users\Achal Shetty\Desktop\bootstrap-checkmark-icon.png" alt="Tick Mark" class="img-fluid mb-3" style="width: 100px;">
+            <p id="confirmationModalMessage"></p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spinner Modal -->
+    <div class="modal fade" id="spinnerModal" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <div class="spinner-border text-primary" role="status">
+              <span class="sr-only">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="mt-4 text-center">
+      <p>Made with ❤️ for you</p>
+    </footer>
+  </div>
+</body>
+</html>
