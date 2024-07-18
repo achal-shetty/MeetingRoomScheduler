@@ -10,7 +10,7 @@
     }
   </style>
   <header class="mb-4 text-center">
-    <img src="1682591259288.jpeg" alt="Company Logo" class="header-logo">
+    <img src="C:\Users\Achal Shetty\Desktop\1682591259288.jpeg" alt="Company Logo" class="header-logo">
   </header>
   <title>Meeting Room Booking</title>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
@@ -102,12 +102,16 @@
           hideSpinner();
           const roomSelect = document.getElementById('meetingRoom');
           roomSelect.innerHTML = '';
-          rooms.forEach(room => {
-            const option = document.createElement('option');
-            option.value = room;
-            option.text = room;
-            roomSelect.appendChild(option);
-          });
+          if (rooms.length === 0) {
+            $('#noRoomsModal').modal('show');
+          } else {
+            rooms.forEach(room => {
+              const option = document.createElement('option');
+              option.value = room;
+              option.text = room;
+              roomSelect.appendChild(option);
+            });
+          }
         });
     }
 
@@ -234,6 +238,11 @@
           </select>
         </div>
       </div>
+      
+      <div class = "form-row">
+        <div class = "form-group col-md-3">
+          <a href="indexnew.html">Check Rooms Status</a>
+        </div>
     </div>
 
       <input type="hidden" id="id" name="id">
@@ -243,7 +252,26 @@
       </div>
     </form>
 
-
+    <!-- No Rooms Available Modal -->
+    <div class="modal fade" id="noRoomsModal" tabindex="-1" role="dialog" aria-labelledby="noRoomsModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="noRoomsModalLabel">No Rooms Available</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body text-center">
+            <img src="C:\Users\Achal Shetty\Desktop\pngtree-a-basic-vector-of-a-red-cross-icon-with-mark-vector-png-image_12700257.png" alt="Cross Mark" class="img-fluid mb-3" style="width: 100px;">
+            <p>Sorry, no meeting rooms are available at the selected timeslot!</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Confirmation Modal -->
     <div class="modal fade" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel" aria-hidden="true">
@@ -256,7 +284,7 @@
             </button>
           </div>
           <div class="modal-body text-center">
-            <img src="bootstrap-checkmark-icon.png" alt="Tick Mark" class="img-fluid mb-3" style="width: 100px;">
+            <img src="C:\Users\Achal Shetty\Desktop\bootstrap-checkmark-icon.png" alt="Tick Mark" class="img-fluid mb-3" style="width: 100px;">
             <p id="confirmationModalMessage"></p>
           </div>
           <div class="modal-footer">
