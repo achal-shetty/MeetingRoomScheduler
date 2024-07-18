@@ -1,1 +1,233 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Room Occupancy Status</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Arial', sans-serif;
+    }
+    .container {
+      margin-top: 30px;
+    }
+    h1 {
+      color: #343a40;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .form-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      flex: 1;
+      margin-right: 10px;
+    }
+    .form-group:last-child {
+      margin-right: 0;
+    }
+    .form-group label {
+      font-weight: bold;
+    }
+    .timeslot-row {
+      display: flex;
+      border: 1px solid #ddd;
+      padding: 5px;
+      align-items: center;
+      transition: background-color 0.3s;
+    }
+    .timeslot {
+      width: 100px;
+      font-weight: bold;
+    }
+    .booked {
+      background-color: #6c757d;
+      color: white;
+      flex-grow: 1;
+      padding: 10px;
+      text-align: center;
+      transition: transform 0.3s ease, background-color 0.3s ease;
+    }
+    .booked:hover {
+      transform: scale(1.1);
+      background-color: #CF9FFF;
+    }
+    .unbooked {
+      flex-grow: 1;
+      padding: 10px;
+      text-align: center;
+      background-color: #d4edda;
+      transition: background-color 0.3s ease;
+    }
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+    .day {
+      border: 1px solid #ddd;
+      padding: 10px;
+      background-color: white;
+    }
+    .day-heading {
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 10px;
+      color: #495057;
+    }
+    .spinner-border {
+      display: block;
+      margin: 50px auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Room Occupancy Status</h1>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="meetingRoom">Select Meeting Room:</label>
+        <select class="form-control" id="meetingRoom" onchange="showBookings()">
+          <option value="M1">M1</option>
+          <option value="M2">M2</option>
+          <option value="M3">M3</option>
+          <option value="M4">M4</option>
+          <option value="M5">M5</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="viewType">Select View Type:</label>
+        <select class="form-control" id="viewType" onchange="showBookings()">
+          <option value="today">Today's Bookings</option>
+          <option value="week">This Week's Bookings</option>
+        </select>
+      </div>
+    </div>
+    <div id="spinner" class="spinner-border text-primary" role="status">
+      <span class="sr-only">Loading...</span>
+    </div>
+    <div id="calendar"></div>
+  </div>
+
+  <script>
+    var bookings = [];
+    var today = new Date();
+    var dateString = today.toISOString().split('T')[0];
+    var dayString = today.toLocaleDateString(undefined, { weekday: 'long' });
+
+    document.addEventListener('DOMContentLoaded', function() {
+      fetchBookings();
+    });
+
+    function fetchBookings() {
+      var scriptUrl = 'https://script.google.com/macros/s/AKfycbwO8LLB64VuFDzCYUUM9sznZaKSWLvzCdz8gfe_bAe1lmMZhPGajx4NzhmkU0wPGg/exec?callback=?'; // Replace with your Google Apps Script web app URL
+      fetch(scriptUrl)
+        .then(response => response.json())
+        .then(data => {
+          bookings = data;
+          showBookings();
+        })
+        .catch(error => console.error('Error fetching data:', error));
+    }
+
+    function showBookings() {
+      document.getElementById('spinner').style.display = 'block';
+      var meetingRoom = document.getElementById('meetingRoom').value;
+      var viewType = document.getElementById('viewType').value;
+      var calendar = document.getElementById('calendar');
+      var timeslots = [];
+
+      setTimeout(function() {
+        if (viewType === 'today') {
+          for (var hour = 9; hour < 21; hour++) {
+            var startTime = ('0' + hour).slice(-2) + ':00';
+            var endTime = ('0' + (hour + 1)).slice(-2) + ':00';
+            timeslots.push({ time: startTime + ' - ' + endTime, booked: false, companyName: '' });
+          }
+
+          bookings.forEach(function(booking) {
+            if (booking.meetingRoom === meetingRoom && booking.bookedTimeslot.startsWith(dateString)) {
+              var timeslotParts = booking.bookedTimeslot.split(' ');
+              var startTime = timeslotParts[1];
+              var endTime = timeslotParts[3];
+              
+              var startHour = parseInt(startTime.split(':')[0], 10);
+              var endHour = parseInt(endTime.split(':')[0], 10);
+
+              for (var hour = startHour; hour < endHour; hour++) {
+                var slotTime = ('0' + hour).slice(-2) + ':00 - ' + ('0' + (hour + 1)).slice(-2) + ':00';
+                var index = timeslots.findIndex(slot => slot.time === slotTime);
+                if (index !== -1) {
+                  timeslots[index].booked = true;
+                  timeslots[index].companyName = booking.companyName;
+                }
+              }
+            }
+          });
+
+          calendar.innerHTML = `<h4>Today's Bookings (${dateString} - ${dayString})</h4>`;
+          timeslots.forEach(function(slot) {
+            calendar.innerHTML += `<div class="timeslot-row">
+              <div class="timeslot">${slot.time}</div>
+              <div class="${slot.booked ? 'booked' : 'unbooked'}">${slot.booked ? slot.companyName : 'Available'}</div>
+            </div>`;
+          });
+        } else if (viewType === 'week') {
+          var startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - today.getDay() + 1);
+          var daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          var weekDates = [];
+
+          for (var i = 0; i < 6; i++) {
+            var date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + i);
+            weekDates.push(date);
+          }
+
+          var weekCalendar = '<div class="calendar">';
+          daysOfWeek.forEach(function(day, index) {
+            weekCalendar += `<div class="day">
+              <div class="day-heading">${day} (${weekDates[index].toISOString().split('T')[0]})</div>`;
+            for (var hour = 9; hour < 21; hour++) {
+              var startTime = ('0' + hour).slice(-2) + ':00';
+              var endTime = ('0' + (hour + 1)).slice(-2) + ':00';
+              var timeslot = { time: startTime + ' - ' + endTime, booked: false, companyName: '' };
+
+              bookings.forEach(function(booking) {
+                if (booking.meetingRoom === meetingRoom && booking.bookedTimeslot.startsWith(weekDates[index].toISOString().split('T')[0])) {
+                  var timeslotParts = booking.bookedTimeslot.split(' ');
+                  var startTime = timeslotParts[1];
+                  var endTime = timeslotParts[3];
+                  
+                  var startHour = parseInt(startTime.split(':')[0], 10);
+                  var endHour = parseInt(endTime.split(':')[0], 10);
+
+                  for (var hour = startHour; hour < endHour; hour++) {
+                    var slotTime = ('0' + hour).slice(-2) + ':00 - ' + ('0' + (hour + 1)).slice(-2) + ':00';
+                    if (slotTime === timeslot.time) {
+                      timeslot.booked = true;
+                      timeslot.companyName = booking.companyName;
+                    }
+                  }
+                }
+              });
+
+              weekCalendar += `<div class="timeslot-row">
+                <div class="timeslot">${timeslot.time}</div>
+                <div class="${timeslot.booked ? 'booked' : 'unbooked'}">${timeslot.booked ? timeslot.companyName : 'Available'}</div>
+              </div>`;
+            }
+            weekCalendar += '</div>';
+          });
+          weekCalendar += '</div>';
+          calendar.innerHTML = weekCalendar;
+        }
+        document.getElementById('spinner').style.display = 'none';
+      }, 1000);
+    }
+  </script>
+</body>
+</html>
