@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    }
+    .container {
+      background-color: #d9d9de;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      margin-top: 50px;
+      font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    }
+    .rounded-box {
+      background-color: #ffffff;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+      font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    }
+    .form-control {
+      border-radius: 10px;
+      font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    }
+    .header-logo {
+      width: 200px;
+      height: auto;
+      font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    }
+    .modal-icon {
+      width: 50px;
+      height: auto;
+      font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    }
+    .btn-custom {
+      background-color: rgb(12, 15, 35) !important;
+      color: rgb(244, 241, 241) !important;
+      border-radius: 50px !important;
+      padding: 10px 20px !important;
+      border: none !important;
+    }
+    
+  </style>
+  <title>Meeting Room Booking</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script>
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbyfhzPy5IIK8q2d7lPnUcT7rwvbHLLCOfty13x7btp2t5g_vDYyNseHvHuTprA26go/exec';
+
+    function showSpinner() {
+      $('#spinnerModal').modal('show');
+    }
+
+    function hideSpinner() {
+      $('#spinnerModal').modal('hide');
+    }
+
+    function checkFormValidity() {
+      const whatsappNumber = document.getElementById('whatsappNumber').value;
+      const firstName = document.getElementById('firstName').value;
+      const lastName = document.getElementById('lastName').value;
+      const companyName = document.getElementById('companyName').value;
+      const designation = document.getElementById('designation').value;
+      const date = document.getElementById('date').value;
+      const startTime = document.getElementById('startTime').value;
+      const endTime = document.getElementById('endTime').value;
+      const meetingRoom = document.getElementById('meetingRoom').value;
+
+      const isValid = whatsappNumber && firstName && lastName && companyName && designation &&
+                      date && startTime && endTime && meetingRoom;
+
+      document.getElementById('confirmBookButton').disabled = !isValid;
+    }
+
+    function populateCustomerDetails() {
+      showSpinner();
+      const whatsappNumber = document.getElementById('whatsappNumber').value;
+      if (!whatsappNumber.match(/^\d{10}$/)) {
+        alert('Please enter a valid 10-digit WhatsApp number');
+        hideSpinner();
+        return;
+      }
+      fetch(`${scriptUrl}?action=getCustomerDetails&whatsappNumber=${whatsappNumber}`)
+        .then(response => response.json())
+        .then(details => {
+          hideSpinner();
+          if (details) {
+            document.getElementById('firstName').value = details.firstName;
+            document.getElementById('lastName').value = details.lastName;
+            document.getElementById('companyName').value = details.companyName;
+            document.getElementById('designation').value = details.designation;
+            document.getElementById('id').value = details.id;
+            window.parent.postMessage('showCalendar', '*');
+            checkFormValidity();
+          } else {
+            alert('Not a customer');
+            clearForm();
+          }
+        });
+    }
+
+    function convertTo12HourFormat(time24) {
+      const [hours, minutes] = time24.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hours12 = hours % 12 || 12;
+      const minutes12 = minutes.toString().padStart(2, '0');
+      return `${hours12}:${minutes12} ${period}`;
+    }
+
+    function populateTimeSlots() {
+      const startTimeSelect = document.getElementById('startTime');
+      const dateInput = document.getElementById('date');
+      const now = new Date();
+      const selectedDate = new Date(dateInput.value);
+
+      let startHour = 9; // Default start hour for future dates
+
+      // If the selected date is today, start from the current hour
+      if (selectedDate.toDateString() === now.toDateString()) {
+        startHour = now.getHours();
+      }
+
+      const startTimes = generateTimeSlots(startHour, 21, 60);  // Start hour to 9 PM with 60-minute intervals
+
+      startTimeSelect.innerHTML = ''; // Clear existing options
+      startTimes.forEach(time => {
+        const option = document.createElement('option');
+        option.value = time;
+        option.textContent = convertTo12HourFormat(time);
+        startTimeSelect.appendChild(option);
+      });
+
+      startTimeSelect.addEventListener('change', updateEndTimeSlots);
+      
+      // Trigger updateEndTimeSlots to populate end times initially
+      updateEndTimeSlots();
+}
+
+    function updateEndTimeSlots() {
+    const startTime = document.getElementById('startTime').value;
+    const endTimeSelect = document.getElementById('endTime');
+    endTimeSelect.innerHTML = ''; // Clear previous options
+
+    if (startTime) {
+      const startTimeHour = parseInt(startTime.split(':')[0], 10);
+      const endTimes = generateTimeSlots(startTimeHour + 1, Math.min(startTimeHour + 3, 22), 60);  // Next 2 hours or until 9 PM
+
+      endTimes.forEach(time => {
+        const option = document.createElement('option');
+        option.value = time;
+        option.textContent = convertTo12HourFormat(time);
+        endTimeSelect.appendChild(option);
+      });
+    }
+  }
+
+    function generateTimeSlots(startHour, endHour, interval) {
+    const times = [];
+    for (let i = startHour * 60; i < endHour * 60; i += interval) {
+      const hours = Math.floor(i / 60);
+      const minutes = i % 60;
+      const time = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      times.push(time);
+    }
+    return times;
+  }
+
+    function showAvailableRooms() {
+      showSpinner();
+      const date = document.getElementById('date').value;
+      const startTime = document.getElementById('startTime').value;
+      const endTime = document.getElementById('endTime').value;
+      if (!date || !startTime || !endTime) {
+        alert('Please select date and both start time and end time');
+        hideSpinner();
+        return;
+      }
+      const timeSlot = `${startTime} to ${endTime}`;
+      fetch(`${scriptUrl}?action=getAvailableRooms&date=${date}&timeSlot=${timeSlot}`)
+        .then(response => response.json())
+        .then(rooms => {
+          hideSpinner();
+          const roomSelect = document.getElementById('meetingRoom');
+          roomSelect.innerHTML = '';
+          if (rooms.length === 0) {
+            $('#noRoomsModal').modal('show');
+          } else {
+            rooms.forEach(room => {
+              const option = document.createElement('option');
+              option.value = room;
+              option.text = room;
+              roomSelect.appendChild(option);
+            });
+          }
+          checkFormValidity();
+        });
+    }
+
+    function bookMeetingRoom() {
+  showSpinner();
+  const details = {
+    id: document.getElementById('id').value,
+    firstName: document.getElementById('firstName').value,
+    lastName: document.getElementById('lastName').value,
+    whatsappNumber: document.getElementById('whatsappNumber').value,
+    companyName: document.getElementById('companyName').value,
+    designation: document.getElementById('designation').value,
+    meetingRoom: document.getElementById('meetingRoom').value,
+    date: document.getElementById('date').value,
+    timeSlot: `${document.getElementById('startTime').value} to ${document.getElementById('endTime').value}`
+  };
+
+  if (!details.whatsappNumber || !details.meetingRoom || !details.timeSlot || !details.date) {
+    alert('Please complete all fields before booking');
+    hideSpinner();
+    return;
+  }
+
+  fetch(scriptUrl, {
+    method: 'POST',
+    body: new URLSearchParams({
+      action: 'logBooking',
+      details: JSON.stringify(details)
+    })
+  })
+  .then(response => response.text())
+  .then(message => {
+    hideSpinner();
+    document.getElementById('confirmationModalMessage').innerText = message;
+    $('#confirmationModal').modal('show');
+    clearForm();
+    
+    // Send message to parent window to update calendar
+    window.parent.postMessage({
+      type: 'updateCalendar',
+      booking: details
+    }, '*');
+  });
+}
+
+    function resetRoomSelection() {
+      const meetingRoomSelect = document.getElementById('meetingRoom');
+      meetingRoomSelect.innerHTML = '<option value="">Select a room</option>';
+      document.getElementById('confirmBookButton').disabled = true;
+    }
+
+    function clearForm() {
+      document.getElementById('whatsappNumber').value = '';
+      document.getElementById('firstName').value = '';
+      document.getElementById('lastName').value = '';
+      document.getElementById('companyName').value = '';
+      document.getElementById('designation').value = '';
+      document.getElementById('startTime').value = '';
+      document.getElementById('endTime').value = '';
+      document.getElementById('meetingRoom').innerHTML = '';
+      document.getElementById('date').value = '';
+    }
+
+    function formatDate(date) {
+      const options = { day: 'numeric', month: 'long', year: 'numeric' };
+      return date.toLocaleDateString('en-US', options);
+    }
+
+      window.onload = function() {
+        document.getElementById('startTime').addEventListener('change', resetRoomSelection);
+        document.getElementById('endTime').addEventListener('change', resetRoomSelection);
+        document.getElementById('meetingRoom').addEventListener('change', checkFormValidity);
+      const dateInput = document.getElementById('date');
+      const today = new Date();
+      const formattedDate = formatDate(today);
+      
+      dateInput.min = today.toISOString().split('T')[0];
+      dateInput.valueAsDate = today;
+      
+      // Create a span to display the formatted date
+      const formattedDateSpan = document.createElement('span');
+      formattedDateSpan.id = 'formattedDate';
+      formattedDateSpan.textContent = formattedDate;
+      dateInput.parentNode.insertBefore(formattedDateSpan, dateInput.nextSibling);
+
+      // Update formatted date and time slots when date input changes
+      dateInput.addEventListener('change', function() {
+        const selectedDate = new Date(this.value);
+        formattedDateSpan.textContent = formatDate(selectedDate);
+        populateTimeSlots();
+      });
+
+      populateTimeSlots();
+
+      const formInputs = document.querySelectorAll('input, select');
+      formInputs.forEach(input => {
+        input.addEventListener('change', checkFormValidity);
+      });
+
+      checkFormValidity();
+    };
+
+    window.addEventListener('message', function(event) {
+    if (event.data.type === 'selectTimeSlot') {
+      console.log('Received:', event.data);
+    
+    document.getElementById('date').value = event.data.date;
+    const selectedDate = new Date(event.data.date);
+    document.getElementById('formattedDate').textContent = formatDate(selectedDate);
+
+    var startTimeSelect = document.getElementById('startTime');
+    startTimeSelect.innerHTML = ''; // Clear existing options
+    var option = document.createElement('option');
+    option.value = event.data.startTime;
+    option.textContent = convertTo12HourFormat(event.data.startTime);
+    startTimeSelect.appendChild(option);
+    
+    updateEndTimeSlots();
+
+    var endTimeSelect = document.getElementById('endTime');
+    endTimeSelect.innerHTML = ''; // Clear existing options
+    var option = document.createElement('option');
+    option.value = event.data.endTime;
+    option.textContent = convertTo12HourFormat(event.data.endTime);
+    endTimeSelect.appendChild(option);
+
+    var meetingRoomSelect = document.getElementById('meetingRoom');
+    meetingRoomSelect.innerHTML = `<option value="${event.data.meetingRoom}">${event.data.meetingRoom}</option>`;
+
+    showAvailableRooms();
+  }
+});
+  window.addEventListener('message', function(event) {
+  if (event.data === 'focusWhatsAppInput') {
+    document.getElementById('whatsappNumber').focus();
+  }
+});
+
+  </script>
+</head>
+<body>
+  <div class="container mt-5">
+    <form>
+      <div class="rounded-box">
+        <div class="form-group">
+          <h5 class="text-align">Begin by entering your WhatsApp Number</h5>
+          <input type="text" class="form-control" id="whatsappNumber" name="whatsappNumber" placeholder="Enter 10-digit WhatsApp number" required onblur="populateCustomerDetails()">
+        </div>
+      </div>
+
+      <div class="rounded-box">
+        <h5 class="text-align">Your Details (this will be auto-populated)</h5>
+        <div class="form-row">
+          <div class="col-md-6 col-sm-6 mb-1">
+            <label for="firstName">First Name:</label>
+            <input type="text" class="form-control" id="firstName" name="firstName" readonly>
+          </div>
+          <div class="col-md-6 col-sm-6 mb-1">
+            <label for="lastName">Last Name:</label>
+            <input type="text" class="form-control" id="lastName" name="lastName" readonly>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="col-md-6 col-sm-6 mb-1">
+            <label for="companyName">Company Name:</label>
+            <input type="text" class="form-control" id="companyName" name="companyName" readonly>
+          </div>
+          <div class="col-md-6 col-sm-6 mb-1">
+            <label for="designation">Designation:</label>
+            <input type="text" class="form-control" id="designation" name="designation" readonly>
+          </div>
+        </div>
+        <input type="hidden" id="id" name="id">
+      </div>
+      
+      <div class="rounded-box">
+        <h5 class="text-align">Choose Meeting Date and Time</h5>
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label for="date">Date:</label>
+            <input type="date" class="form-control" id="date" name="date" required>
+            <span id="formattedDate"></span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="col-md-6 col-sm-6 mb-1">
+            <label for="startTime">Select Start Time:</label>
+            <select class="form-control" id="startTime" name="startTime" required></select>
+          </div>
+          <div class="col-md-6 col-sm-6 mb-3">
+            <label for="endTime">Select End Time:</label>
+            <select class="form-control" id="endTime" name="endTime" required></select>
+          </div>
+        </div>
+        <div class = "text-center">
+          <button type="button" class="btn btn-custom" onclick="showAvailableRooms()">Show Available Rooms</button>
+        </div>
+      </div>
+
+      <div class = "rounded-box">
+        <div class="form-group mt-3">
+          <h5 class="text-align">Available Meeting Rooms</h5>
+          <select class="form-control" id="meetingRoom" name="meetingRoom" required></select>
+        </div>
+
+        <div class="text-center">
+          <button type="button" id="confirmBookButton" class="btn btn-custom" onclick="bookMeetingRoom()" disabled>Confirm and Book</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Spinner Modal -->
+  <div class="modal fade" id="spinnerModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-body text-center">
+          <p> Fetching details for you..</p>
+          <div class="spinner-border text-primary" role="status">
+            <span class="sr-only">Loading...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Rooms Modal -->
+  <div class="modal fade" id="noRoomsModal" tabindex="-1" role="dialog" aria-labelledby="noRoomsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-body text-center">
+          <img src = "pngtree-a-basic-vector-of-a-red-cross-icon-with-mark-vector-png-image_12700257.png" alt = "Cross" style = "width: 50px; height: 50px;">
+          <p>No available rooms found for the selected timeslot.</p>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div class="modal fade" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-body text-center">
+          <img src = "bootstrap-checkmark-icon.png" alt = "Tick Mark" style = "width: 50px; height: 50px;">
+          <p id="confirmationModalMessage"></p>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-center mt-4">
+    <p>Made with ❤️ for you</p>
+  </footer>
+</body>
+</html>
+            
