@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Booking Status</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Gill Sans', 'Gill Sans MT', 'Calibri', 'Trebuchet MS', sans-serif;
+    }
+    .container {
+      margin-top: 20px;
+    }
+    h1 {
+      color: #343a40;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .form-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      flex: 1;
+      margin-right: 10px;
+    }
+    .form-group:last-child {
+      margin-right: 0;
+    }
+    .form-group label {
+      font-weight: bold;
+    }
+    .calendar-container {
+      overflow-x: auto;
+      width: 100%;
+      padding-bottom: 15px;
+    }
+    .calendar {
+      display: flex;
+      min-width: max-content;
+    }
+    .day {
+      min-width: 200px;
+      border: 1px solid #ddd;
+      padding: 10px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .day-heading {
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 10px;
+      color: #495057;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+    .timeslot-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .timeslot {
+      width: 100px;
+      font-weight: bold;
+      font-size: 9px;
+      background-color: #e9ecef;
+      padding: 5px;
+      text-align: center;
+      border-right: 1px solid #ddd;
+    }
+    .booked {
+      background-color: #c34040;
+      color: white;
+      flex-grow: 1;
+      padding: 5px;
+      text-align: center;
+      font-size: 13px;
+    }
+    .unbooked {
+      flex-grow: 1;
+      padding: 5px;
+      text-align: center;
+      background-color: #d4edda;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .unbooked:hover {
+      border: 2px solid #28a745;
+    }
+    .spinner-border {
+      display: none;
+      margin: 50px auto;
+    }
+    .unbooked.dark-green {
+      background-color: #022009;
+      color: white;
+    }
+    .past {
+      background-color: #e9ecef;
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Booking Status</h1>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="meetingRoom">Select Meeting Room:</label>
+        <select class="form-control" id="meetingRoom" onchange="showBookings()">
+          <option value="M1">M1</option>
+          <option value="M2">M2</option>
+          <option value="M3">M3</option>
+          <option value="M4">M4</option>
+          <option value="M5">M5</option>
+        </select>
+      </div>
+    </div>
+    <div id="spinner" class="spinner-border text-primary" role="status">
+      <span class="sr-only">Loading...</span>
+    </div>
+    <div class="calendar-container">
+      <div id="calendar">
+        <p><a href="#" onclick="redirectToWhatsAppInput(); return false;">Please login using your WhatsApp number to view the calendar</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var isLoggedIn = false;
+    var bookings = [];
+    var today = new Date();
+    var dateString = today.toISOString().split('T')[0];
+
+    window.addEventListener('message', function(event) {
+      if (event.data === 'showCalendar') {
+        isLoggedIn = true;
+        fetchBookings();
+      } else if (event.data.type === 'updateCalendar') {
+        if (isLoggedIn) {
+          fetchBookings();
+        }
+      }
+    });
+
+    function formatTime24to12(time) {
+      var [hours, minutes] = time.split(':');
+      var period = 'AM';
+      hours = parseInt(hours, 10);
+      if (hours >= 12) {
+        period = 'PM';
+        if (hours > 12) {
+          hours -= 12;
+        }
+      } else if (hours === 0) {
+        hours = 12;
+      }
+      return `${hours}:${minutes} ${period}`;
+    }
+
+    function formatDate(dateString) {
+      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const date = new Date(dateString);
+      const day = date.getDate();
+      const month = months[date.getMonth()];
+      const year = date.getFullYear();
+
+      const daySuffix = (day) => {
+        if (day > 3 && day < 21) return 'th';
+        switch (day % 10) {
+          case 1: return "st";
+          case 2: return "nd";
+          case 3: return "rd";
+          default: return "th";
+        }
+      };
+
+      return `${day}${daySuffix(day)} ${month} ${year}`;
+    }
+
+
+    function fetchBookings() {
+      if(!isLoggedIn){
+        return;
+      }
+      document.getElementById('spinner').style.display = 'block';
+      var scriptUrl = 'https://script.google.com/macros/s/AKfycbwO8LLB64VuFDzCYUUM9sznZaKSWLvzCdz8gfe_bAe1lmMZhPGajx4NzhmkU0wPGg/exec?callback=?';
+      fetch(scriptUrl)
+        .then(response => response.json())
+        .then(data => {
+          bookings = data;
+          showBookings();
+        })
+        .catch(error => {
+          console.error('Error fetching data:', error);
+          document.getElementById('spinner').style.display = 'none';
+        });
+    }
+
+    function showBookings(newBooking=null) {
+      if (!isLoggedIn) {
+        document.getElementById('calendar').innerHTML = '<p>Please login using your WhatsApp Number</p>';
+        return;
+      }
+      var meetingRoom = document.getElementById('meetingRoom').value;
+      var calendar = document.getElementById('calendar');
+  
+      document.getElementById('spinner').style.display = 'block';
+      calendar.innerHTML = '';
+
+      setTimeout(function() {
+        var currentDate = new Date(today);
+        var daysToShow = 0;
+        var calendarDiv = document.createElement('div');
+        calendarDiv.classList.add('calendar');
+        calendar.appendChild(calendarDiv);
+
+        while (daysToShow < 7) {
+          if (currentDate.getDay() !== 0) {  // Skip Sundays
+            var currentDateString = currentDate.toISOString().split('T')[0];
+            var currentDayString = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
+
+            var dayDiv = document.createElement('div');
+            dayDiv.classList.add('day');
+            dayDiv.innerHTML = `
+              <div class="day-heading">
+                ${formatDate(currentDateString)} 
+                <br>
+                ${currentDayString}
+              </div>`;
+
+              for (var hour = 9; hour < 21; hour++) {
+                var startTime = ('0' + hour).slice(-2) + ':00';
+                var endTime = ('0' + (hour + 1)).slice(-2) + ':00';
+                var timeslotDiv = document.createElement('div');
+                timeslotDiv.classList.add('timeslot-row');
+                timeslotDiv.innerHTML = `<div class="timeslot">${formatTime24to12(startTime)} - ${formatTime24to12(endTime)}</div>`;
+                var availableSlot = document.createElement('div');
+                availableSlot.classList.add('unbooked');
+                availableSlot.textContent = 'Available';
+                
+                var currentTime = new Date();
+                var slotTime = new Date(currentDate);
+                slotTime.setHours(hour, 0, 0, 0);
+
+
+                if (currentDate.toDateString() === today.toDateString()) {
+                  if (hour < currentTime.getHours()) {
+                    availableSlot.classList.add('past');
+                  } else {
+                    (function(date, startTime, endTime) {
+                      availableSlot.onclick = function() {
+                        selectTimeSlot(date, startTime, endTime, meetingRoom);
+                      };
+                    })(currentDateString, startTime, endTime);
+                  }
+                } else if (currentDate < today) {
+                  availableSlot.classList.add('past');
+                } else {
+                  (function(date, startTime, endTime) {
+                    availableSlot.onclick = function() {
+                      selectTimeSlot(date, startTime, endTime, meetingRoom);
+                    };
+                  })(currentDateString, startTime, endTime);
+                }
+
+                timeslotDiv.appendChild(availableSlot);
+                dayDiv.appendChild(timeslotDiv);
+              }
+
+              bookings.forEach(function(booking) {
+                if (booking.meetingRoom === meetingRoom && booking.bookedTimeslot.startsWith(currentDateString)) {
+                  var timeslotParts = booking.bookedTimeslot.split(' ');
+                  var startTime = timeslotParts[1];
+                  var endTime = timeslotParts[3];
+                  
+                  var startHour = parseInt(startTime.split(':')[0], 10);
+                  var endHour = parseInt(endTime.split(':')[0], 10);
+
+                  for (var hour = startHour; hour < endHour; hour++) {
+                    var slotTime = `${formatTime24to12(('0' + hour).slice(-2) + ':00')} - ${formatTime24to12(('0' + (hour + 1)).slice(-2) + ':00')}`;
+                    var index = Array.from(dayDiv.children).findIndex(slot => slot.firstChild && slot.firstChild.textContent === slotTime);
+                    if (index !== -1) {
+                      dayDiv.children[index].lastChild.classList.remove('unbooked', 'past');
+                      dayDiv.children[index].lastChild.classList.add('booked');
+                      dayDiv.children[index].lastChild.textContent = 'Booked';
+                      dayDiv.children[index].lastChild.onclick = null;
+                    }
+                  }
+                }
+              });
+
+              calendarDiv.appendChild(dayDiv);
+              daysToShow++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+
+          if (newBooking) {
+            if (newBooking.meetingRoom === meetingRoom) {
+              var bookingDate = newBooking.date;
+              var [startTime, endTime] = newBooking.timeSlot.split(' to ');
+              var startHour = parseInt(startTime.split(':')[0], 10);
+              var endHour = parseInt(endTime.split(':')[0], 10);
+
+              var dayDiv = calendarDiv.querySelector(`.day[data-date="${bookingDate}"]`);
+              if (dayDiv) {
+                for (var hour = startHour; hour < endHour; hour++) {
+                  var slotTime = `${formatTime24to12(('0' + hour).slice(-2) + ':00')} - ${formatTime24to12(('0' + (hour + 1)).slice(-2) + ':00')}`;
+                  var slot = dayDiv.querySelector(`.timeslot-row:nth-child(${hour - 8}) .unbooked`);
+                  if (slot) {
+                    slot.classList.remove('unbooked');
+                    slot.classList.add('booked');
+                    slot.textContent = 'Booked';
+                    slot.onclick = null;
+                  }
+                }
+              }
+            }
+          }
+
+          document.getElementById('spinner').style.display = 'none';
+        }, 1000);
+      }
+
+    function selectTimeSlot(date, startTime, endTime, meetingRoom) {
+      console.log('Sending:', { date, startTime, endTime, meetingRoom });
+      window.parent.postMessage({
+        type: 'selectTimeSlot',
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        meetingRoom: meetingRoom
+      }, '*');
+    } 
+
+    function redirectToWhatsAppInput() {
+      window.parent.postMessage('focusWhatsAppInput', '*');
+    }
+
+
+    window.addEventListener('message', function(event) {
+      if (event.data.type === 'updateCalendar') {
+        bookings.push(event.data.booking);
+        showBookings();
+      }
+    });
+
+
+  </script>
+</body>
+</html>
