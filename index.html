@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Split View</title>
-    <!-- Bootstrap CSS -->
+    <title>Beginest Bookings</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .iframe-container {
@@ -12,23 +11,54 @@
             height: 100vh;
             border: none;
         }
+        .header-image {
+            display: block;
+            margin: 0 auto;
+            width: 10%;
+            height: auto;
+            max-height: 150px;
+            object-fit: cover;
+        }
+        .header-heading {
+            background-color: rgb(255, 255, 255);
+            font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            color: rgb(9, 6, 6);
+            text-align: center;
+            padding: 5px;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-6 p-0">
-                <iframe src="main1.html" class="iframe-container"></iframe>
+    <div class="container-fluid p-0">
+        <img src="1682591259288.jpeg" alt="Header Image" class="header-image">
+        <h1 class="header-heading">Book Meeting Room</h1>
+        <div class="row no-gutters">
+            <div class="col-md-6">
+                <iframe src="form.html" class="iframe-container" id="formIframe"></iframe>
             </div>
-            <div class="col-md-6 p-0">
-                <iframe src="indexnew.html" class="iframe-container"></iframe>
+            <div class="col-md-6">
+                <iframe src="calendar.html" class="iframe-container" id="calendarIframe"></iframe>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap JS and dependencies -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+    window.addEventListener('message', function(event) {
+        if (event.data === 'showCalendar') {
+            var calendarIframe = document.getElementById('calendarIframe').contentWindow;
+            calendarIframe.postMessage('showCalendar', '*');
+        } else if (event.data.type === 'selectTimeSlot') {
+            var formIframe = document.getElementById('formIframe').contentWindow;
+            formIframe.postMessage(event.data, '*');
+        } else if (event.data.type === 'updateCalendar') {
+            var calendarIframe = document.getElementById('calendarIframe').contentWindow;
+            calendarIframe.postMessage(event.data, '*');
+        } else if (event.data === 'focusWhatsAppInput') {
+        var formIframe = document.getElementById('formIframe').contentWindow;
+        formIframe.postMessage('focusWhatsAppInput', '*');
+        }
+    });
+    </script>
 </body>
 </html>
